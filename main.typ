@@ -8,7 +8,7 @@
   size: 11pt,
 )
 
-= Progettazione di un agente RAG per il supporto alla centrale di AREU
+= Progettazione di un agente RAG per il supporto alla centrale di AREU (112)
 
 == Abstract
 
