@@ -1,18 +1,51 @@
 name: Build Typst PDF
 
-on: [push]
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "main_en.typ"
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v3
 
-      - uses: typst/typst-action@v1
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          source: main.typ
+          python-version: "3.11"
 
-      - uses: actions/upload-artifact@v3
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Typst
+        run: |
+          curl -L https://typst.app/install.sh | bash
+          echo "$HOME/.typst/bin" >> $GITHUB_PATH
+
+      - name: Build PDF Italian
+        run: typst compile main.typ main.pdf
+
+      - name: Upload Italian PDF
+        uses: actions/upload-artifact@v4
         with:
-          name: thesis-pdf
+          name: thesis-pdf-italian
           path: main.pdf
+
+      - name: Translate to English
+        run: python translate_typst.py
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+      - name: Build PDF English
+        run: typst compile main_en.typ main_en.pdf
+
+      - name: Upload English PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: thesis-pdf-english
+          path: main_en.pdf
