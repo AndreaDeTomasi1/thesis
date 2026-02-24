@@ -3,7 +3,7 @@ name: Build Typst PDF
 on:
   push:
     branches:
-      - main
+      - master
     paths-ignore:
       - "main_en.typ"
 
