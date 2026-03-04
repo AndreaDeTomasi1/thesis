@@ -134,4 +134,4 @@ Possibili sviluppi:
 - multimodalità
 
 == 5. Bibliografia
-#bibliography("bibliografia.bib", style: "ieee")
+#bibliography("bibliography.bib", style: "ieee")
