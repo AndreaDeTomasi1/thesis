@@ -8,6 +8,8 @@
 )
 
 #set text(lang: "it", size: 11pt, font: "Georgia")
+#set figure(supplement: [Figure])
+#set figure(gap: 2em)
 
 = Progettazione di un agente RAG per il supporto alla centrale di AREU (112)
 
@@ -115,9 +117,77 @@ Le direzioni future includono sistemi multimodali, agenti autonomi, retrieval ad
 
 == 2. Metodi
 
-La documentazione è stata preprocessata e indicizzata. Gli embedding sono stati generati tramite Amazon Bedrock.
+=== 2.1 Architettura del Sistema
 
-Il database utilizzato è PostgreSQL con supporto vettoriale.
+*Selezione del database e dei modelli*
+
+Per l'implementazione del sistema è stata effettuata una selezione mirata sia del database utilizzato per la memorizzazione delle informazioni sia dei modelli impiegati nelle fasi di retrieval e generazione. 
+In particolare, è stato scelto di utilizzare PostgreSQL come sistema di gestione del database, esteso tramite pgvector, un'estensione che consente la memorizzazione e la ricerca efficiente di embedding vettoriali. 
+Questa soluzione permette di integrare funzionalità di vector search direttamente all'interno di un database relazionale, semplificando l'infrastruttura del sistema e facilitando la gestione dei documenti e dei relativi embedding utilizzati nel processo di retrieval.
+
+Per quanto riguarda i modelli di intelligenza artificiale, è stata utilizzata la piattaforma Amazon Bedrock, che fornisce accesso a diversi modelli fondamentali attraverso un'interfaccia unificata. 
+L'impiego di questa piattaforma consente di integrare modelli per embedding e generazione mantenendo un'architettura flessibile e scalabile, facilitando allo stesso tempo la sperimentazione e la sostituzione dei modelli senza modifiche sostanziali all'infrastruttura del sistema.
+Inoltre, l'impiego di Amazon Bedrock consente di gestire l'accesso ai modelli tramite l'infrastruttura Amazon Web Services, garantendo un maggiore controllo sui dati e contribuendo a preservare la riservatezza dei documenti utilizzati dal sistema, aspetto particolarmente rilevante nel contesto di questo lavoro.
+
+*LangGraph*
+
+Per l'implementazione e l'orchestrazione del workflow del sistema RAG è stato utilizzato LangGraph, una libreria sviluppata per la costruzione di applicazioni basate su Large Language Models attraverso strutture computazionali a grafo. 
+LangGraph estende il paradigma delle pipeline lineari tipicamente utilizzate nei framework per LLM, consentendo di definire flussi di esecuzione più complessi caratterizzati da transizioni condizionali e cicli iterativi.
+
+A differenza delle architetture sequenziali tradizionali, nelle quali le operazioni vengono eseguite secondo una pipeline statica, LangGraph rappresenta il processo come un grafo diretto composto da nodi e archi. 
+In questo contesto, ciascun nodo rappresenta un'unità computazionale — ad esempio un modulo di retrieval, reasoning o generazione — mentre gli archi definiscono il flusso di dati e le condizioni di transizione tra le diverse fasi del sistema.
+
+Il processo di elaborazione è inoltre guidato da uno "stato" condiviso del grafo (graph state), ovvero una struttura dati che contiene le informazioni rilevanti accumulate durante l'esecuzione. 
+Tale stato viene passato tra i nodi e progressivamente aggiornato, permettendo al sistema di mantenere traccia del contesto corrente della richiesta e dei risultati intermedi prodotti dalle diverse componenti del workflow.
+
+L'utilizzo di un'architettura basata su grafo consente di implementare strategie di reasoning più articolate, come iterazioni tra retrieval e generazione, controlli di qualità sulle risposte prodotte o meccanismi di fallback quando le informazioni recuperate risultano insufficienti. 
+Allo stesso tempo, tale struttura garantisce un'elevata modularità: ogni nodo del grafo incapsula una specifica funzionalità del sistema, permettendo di modificare o sostituire singoli componenti — come il retriever o il modello generativo — senza alterare il workflow complessivo. 
+Queste caratteristiche rendono il sistema più flessibile, facilitando sia l'adattamento dinamico durante l'esecuzione sia la sperimentazione di diverse configurazioni architetturali.
+
+*Descrizione pipeline*
+
+Il workflow del sistema RAG è rappresentato nell'immagine @fig:workflow, che illustra tutte le fasi del processo.
+A seguito della ricezione di una query, il sistema decide se terminare la conversazione, generare una risposta diretta senza recuperare i documenti, o procedere con il retrieval.
+
+In caso di retrieval, l'agente genera due domande semanticamente vicine a quella originale (hyper queries), fa un embedding di tutte e tre le query e utilizza la media dei tre embedding per recuperare i documenti più rilevanti dal database. 
+I documenti recuperati vengono quindi forniti come contesto al modello generativo, che produce la risposta finale.
+
+Il passo successivo consiste nella validazione della risposta generata, che viene confrontata con la domanda originale per verificare la coerenza e la correttezza delle informazioni fornite. In caso di esito negativo, il sistema può decidere di iterare nuovamente il processo di retrieval, aggiornando lo stato del grafo con le informazioni ottenute e generando nuove query per affinare ulteriormente la ricerca, oppure di terminare la conversazione se si ritiene che ulteriori tentativi non porteranno a un miglioramento significativo della risposta (ad esempio per mancanza di documentazione sufficiente).
+
+Qualora la risposta venga ritenuta soddisfacente, il sistema termina la conversazione, restituendo all'utente finale una risposta contestualizzata e basata su fonti esterne, migliorando così l'affidabilità e la pertinenza delle informazioni fornite rispetto a un modello generativo standalone.
+
+Tutti ciò che viene generato durante il processo, comprese le query, i documenti recuperati, le risposte prodotte e il tempo impiegato da ciascun nodo, viene memorizzato nello stato del grafo, consentendo al sistema di mantenere una traccia completa dell'interazione e di utilizzare queste informazioni per eventuali iterazioni successive o per analisi post-hoc delle prestazioni del sistema.
+Inoltre tutti gli step sono affiancati da "reasoning", ovvero da una spiegazione testuale che descrive le decisioni prese dal sistema in ciascuna fase, migliorando così la trasparenza e l'interpretabilità del processo.
+
+#v(2.0em)
+#figure(
+  image("/grafo_rag.drawio.svg", width: 70%),
+  caption: [RAG agent workflow]
+) <fig:workflow>
+
+#v(2.0em)
+
+=== 2.2 Dataset, Preprocessing e Database
+
+I documenti utilizzati per il retrieval sono stati raccolti da fonti pubbliche e private, e includono istruzioni operative, procedure interne e documenti di rilievo per la gestione delle emergenze.
+Il processo di preprocessing ha coinvolto la pulizia dei dati, la normalizzazione del testo e la segmentazione in unità informative coerenti (chunking). ogni "chunk" sufficientemente lungo viene affiancato da un "summary" e da tre "hyper queries", ovvero domande generate automaticamente che rappresentano vari aspetti del contenuto del chunk, al fine di migliorare la copertura semantica durante il processo di retrieval. 
+
+Il database è stato implementato utilizzando PostgreSQL con l'estensione pgvector, che consente di memorizzare e indicizzare efficientemente gli embedding vettoriali associati ai documenti.
+Gli embedding sono stati generati utilizzando un modello di embedding disponibile su Amazon Bedrock, e memorizzati nel database insieme ai metadati dei documenti, come titolo e distinzione tra documenti pubblici e privati.
+
+=== 2.3 Retrieval con reasoning
+
+Nella fase di retrieval, il sistema genera due hyper queries a partire dalla query originale, le trasforma in embedding e utilizza la media dei tre embedding per recuperare i documenti più rilevanti dal database. Successivamente, viene fatta una valutazione del contenuto dei documenti recuperati, con l'obiettivo di identificare la rilevanza e la pertinenza delle informazioni rispetto alla query originale. Questa valutazione viene fatta da un modello, il quale affianca ad ogni "chunk" un punteggio compreso tra 0 e 1, che rappresenta la probabilità che il documento sia rilevante per la query, insieme a una spiegazione testuale che descrive le motivazioni della valutazione.
+
+Dopo questa fase, i documenti vengono ordinati sulla base della rilevanza e scremati in modo da mantenere solo quelli più pertinenti tramite una "sigmoide" centrata nella media dei punteggi, al fine di ridurre il rumore e migliorare la qualità del contesto fornito al modello generativo.
+
+Infine, i documenti selezionati vengono forniti come contesto al modello generativo, mantenendo informazioni circa la pertinenza con la query originale, per permettere all'agente di integrare in modo più efficace le informazioni durante la generazione della risposta. 
+
+=== 2.4 Generazione e Validazione
+
+Il modello generativo utilizza come contesto i documenti recuperati con il punteggio di rilevanza, la query originale e le relative hyper queries, per produrre una risposta contestualizzata e basata su fonti attendibili. La generazione della risposta è guidata da un prompt jinja, progettato per incoraggiare il modello a integrare le informazioni in modo coerente e a fornire spiegazioni sulle decisioni prese durante la generazione. La risposta contiene citazioni ai documenti utilizzati, unito a un riassunto del contenuto e a una spiegazione del processo inferenziale seguito dal modello per arrivare alla risposta finale.
+
+La fase di validazione dirige il flusso del sistema verso l'iterazione del retrieval o verso la terminazione della conversazione. Anche in questo passaggio, l'agente fornisce una spiegazione testuale che descrive le motivazioni alla base della decisione presa, migliorando così la trasparenza del processo e permettendo all'utente di comprendere le ragioni per cui il sistema ha ritenuto la risposta soddisfacente o meno.
 
 == 3. Risultati
 
@@ -132,6 +202,6 @@ Possibili sviluppi:
 - integrazione con sistemi sanitari
 - miglioramento osservabilità
 - multimodalità
+- confronto tra modelli di embedding e generazione
 
-== 5. Bibliografia
 #bibliography("bibliography.bib", style: "ieee")
