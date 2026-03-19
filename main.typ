@@ -11,6 +11,12 @@
 #set figure(supplement: [Figure])
 #set figure(gap: 2em)
 
+#import "@preview/cetz:0.3.2": canvas, draw
+#import "@preview/cetz-plot:0.1.1": plot
+#let sigmoid(x, k: 8, x0: 0.5) = {
+  1.0 / (1.0 + calc.exp(-k * (x - x0)))
+}
+
 = Progettazione di un agente RAG per il supporto alla centrale di AREU (112)
 
 == Abstract
@@ -161,7 +167,7 @@ Inoltre tutti gli step sono affiancati da "reasoning", ovvero da una spiegazione
 
 #v(2.0em)
 #figure(
-  image("/grafo_rag.drawio.svg", width: 70%),
+  image("/ObservableRagAgentTest-graph.png", width: 100%),
   caption: [RAG agent workflow]
 ) <fig:workflow>
 
@@ -179,7 +185,75 @@ Gli embedding sono stati generati utilizzando un modello di embedding disponibil
 
 Nella fase di retrieval, il sistema genera due hyper queries a partire dalla query originale, le trasforma in embedding e utilizza la media dei tre embedding per recuperare i documenti più rilevanti dal database. Successivamente, viene fatta una valutazione del contenuto dei documenti recuperati, con l'obiettivo di identificare la rilevanza e la pertinenza delle informazioni rispetto alla query originale. Questa valutazione viene fatta da un modello, il quale affianca ad ogni "chunk" un punteggio compreso tra 0 e 1, che rappresenta la probabilità che il documento sia rilevante per la query, insieme a una spiegazione testuale che descrive le motivazioni della valutazione.
 
-Dopo questa fase, i documenti vengono ordinati sulla base della rilevanza e scremati in modo da mantenere solo quelli più pertinenti tramite una "sigmoide" centrata nella media dei punteggi, al fine di ridurre il rumore e migliorare la qualità del contesto fornito al modello generativo.
+Dopo questa fase, i documenti vengono ordinati sulla base della rilevanza e scremati in modo da mantenere solo quelli più pertinenti tramite una "sigmoide" centrata nella media dei punteggi con steepness 8, al fine di ridurre il rumore e migliorare la qualità del contesto fornito al modello generativo. Solo i documenti con un punteggio di rilevanza superiore a 0.5 vengono mantenuti, mentre quelli con punteggio inferiore a 0.5 vengono scartati, come mostrato nella @fig:sigmoid.
+
+#let sample-relevances = (0.82, 0.91, 0.45, 0.78, 0.23, 0.67, 0.55, 0.38, 0.71, 0.60)
+
+#let mean-relevance = sample-relevances.sum() / sample-relevances.len()
+
+#figure(
+  canvas({
+    plot.plot(
+      size: (10, 6),
+      x-label: [relevance score],
+      y-label: [$sigma$(relevance)],
+      x-min: 0, x-max: 1,
+      y-min: 0, y-max: 1,
+      x-tick-step: 0.25,
+      y-tick-step: 0.25,
+      {
+        // rejected zone
+        plot.add-fill-between(
+          domain: (0, mean-relevance),
+          samples: 100,
+          x => sigmoid(x, k: 10, x0: mean-relevance),
+          x => 0,
+          style: (fill: red.lighten(70%), stroke: none),
+        )
+
+        // accepted zone
+        plot.add-fill-between(
+          domain: (mean-relevance, 1),
+          samples: 100,
+          x => sigmoid(x, k: 10, x0: mean-relevance),
+          x => 0,
+          style: (fill: green.lighten(70%), stroke: none),
+        )
+
+        // sigmoid centered on mean
+        plot.add(
+          domain: (0, 1),
+          samples: 100,
+          x => sigmoid(x, k: 10, x0: mean-relevance),
+          style: (stroke: black),
+        )
+
+        // plot each document as a dot on the x-axis
+        plot.add(
+          sample-relevances.map(r => (r, 0.02)),
+          mark: "o",
+          mark-size: 0.15,
+          style: (stroke: none, fill: black),
+        )
+      }
+    )
+
+    // vertical dashed line at the mean
+    let mean-x = mean-relevance * 10  // maps [0,1] -> [0, size.x]
+    draw.line(
+      (mean-x, 0),
+      (mean-x, 6),
+      stroke: (paint: blue, dash: "dashed")
+    )
+
+    // label the mean
+    draw.content(
+      (mean-x + 0.15, 5.5),
+      text(size: 8pt, fill: blue)[mean = #calc.round(mean-relevance, digits: 2)]
+    )
+  }),
+  caption: [Sigmoid]
+) <fig:sigmoid>
 
 Infine, i documenti selezionati vengono forniti come contesto al modello generativo, mantenendo informazioni circa la pertinenza con la query originale, per permettere all'agente di integrare in modo più efficace le informazioni durante la generazione della risposta. 
 
@@ -191,17 +265,19 @@ La fase di validazione dirige il flusso del sistema verso l'iterazione del retri
 
 == 3. Risultati
 
-Il sistema ha dimostrato:
-- buon retrieval semantico
-- risposte contestualizzate
-- riduzione dei tempi di ricerca
+Sono stati condotti test preliminari per valutare l'efficacia del sistema RAG implementato, focalizzandosi sulla qualità del retrieval semantico, qualità delle risposte generate e tempi di ricerca. I risultati ottenuti indicano che il sistema è in grado di recuperare documenti rilevanti anche in presenza di query complesse o ambigue, grazie all'utilizzo di embedding semantici e alla generazione di hyper queries. Le risposte prodotte risultano contestualizzate e basate su fonti attendibili, con una riduzione significativa dei tempi di ricerca rispetto a un approccio basato esclusivamente su modelli generativi senza retrieval.
+
+Per l'esecuzione dei test sono stati coinvolti operatori di AREU, che hanno fornito feedback qualitativi sulla pertinenza delle risposte e sulla facilità d'uso del sistema. I risultati preliminari suggeriscono un potenziale significativo per l'applicazione di sistemi RAG in contesti di emergenza, dove la rapidità e l'affidabilità delle informazioni sono cruciali.
+
+Sono stati confrontati due modelli generativi diversi per valutare l'impatto della qualità del modello sulla performance complessiva del sistema RAG. I risultati indicano che, sebbene entrambi i modelli siano in grado di integrare efficacemente le informazioni recuperate, il modello con capacità generative più avanzate produce risposte più coerenti e dettagliate, evidenziando l'importanza di un modello generativo di alta qualità per massimizzare i benefici del paradigma RAG.
 
 == 4. Discussione
 
-Possibili sviluppi:
-- integrazione con sistemi sanitari
-- miglioramento osservabilità
-- multimodalità
-- confronto tra modelli di embedding e generazione
+Il sistema RAG implementato ha dimostrato di essere efficace nel recuperare informazioni rilevanti e nel generare risposte contestualizzate, migliorando l'affidabilità e la pertinenza delle informazioni fornite agli operatori di AREU. Tuttavia, sono emerse alcune limitazioni, tra cui la dipendenza dalla qualità del database e dei modelli utilizzati, nonché la necessità di ulteriori ottimizzazioni per gestire scenari più complessi o dinamici. Nello specifico, i documenti utilizzati per il retrieval non sono stati prodotti con l'obiettivo di essere processati da un sistema RAG, e presentano quindi una struttura non ottimale per il processo di retrieval e generazione. In particolare, la presenza di informazioni ridondanti, obsolete o non strutturate ha reso più difficile per il sistema identificare e integrare le informazioni più rilevanti, evidenziando l'importanza di un processo di curazione e organizzazione dei dati più mirato per massimizzare l'efficacia dei sistemi RAG.
+
+I punti di forza del sistema includono la modularità dell'architettura, che consente di sostituire o aggiornare singoli componenti senza alterare l'intero workflow, e la capacità di integrare informazioni esterne in modo dinamico, migliorando la fattualità e la trasparenza delle risposte generate. Inoltre, l'utilizzo di un approccio basato su grafo ha permesso di implementare strategie di reasoning più articolate e di mantenere una traccia completa dell'interazione, facilitando iterazioni successive e analisi post-hoc delle prestazioni del sistema.
+
+Tra gli sviluppi futuri, si prevede di esplorare l'integrazione con sistemi sanitari esistenti, al fine di migliorare ulteriormente la pertinenza e l'utilità delle risposte fornite agli operatori di AREU. Un'altra direzione di ricerca riguarda l'esplorazione della multimodalità, integrando fonti di conoscenza non testuali come immagini o dati strutturati per arricchire ulteriormente il contesto fornito al modello generativo. Infine, si prevede di condurre un confronto sistematico tra diversi modelli di embedding e generazione, al fine di identificare le configurazioni più efficaci per il contesto specifico di AREU, e di esplorare strategie di hierarchical ranking per ottimizzare ulteriormente la selezione dei documenti durante il processo di retrieval.
+
 
 #bibliography("bibliography.bib", style: "ieee")
