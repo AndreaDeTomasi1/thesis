@@ -1,35 +1,40 @@
-#set page(
-  paper: "a4",
-  margin: 2.5cm,
-  footer: context [
-    #set align(center)
-    Pag #counter(page).display()
-  ]
+#import "template.typ": ottante-report, tableofcontents, remark, smallsection, disclaimer, copyright, address, contacts
+
+#show: ottante-report.with(
+  title: "Progettazione di un agente RAG per il supporto alla centrale di AREU (112)",
+  subtitle: "",
+  authors: "Andrea De Tomasi",
+  date: "Aprile 2026",
+  logo: "logoBicoccaAcademy.png",         
+  left-header-content: "",
+  right-header-content: "",
+  unnumbered-sections: false,
 )
 
-#set text(lang: "it", size: 11pt, font: "Georgia")
-#set figure(supplement: [Figure])
-#set figure(gap: 2em)
+#tableofcontents()
 
 #import "@preview/cetz:0.3.2": canvas, draw
 #import "@preview/cetz-plot:0.1.1": plot
 #let sigmoid(x, k: 8, x0: 0.5) = {
   1.0 / (1.0 + calc.exp(-k * (x - x0)))
 }
+#let mh = $upright("MultiHead")$
+#let concat = $upright("Concat")$
+#let head = $upright("head")$
+#let attention = $upright("Attention")$
+#let softmax = $upright("Softmax")$
 
-= Progettazione di un agente RAG per il supporto alla centrale di AREU (112)
-
-== Abstract
+= Abstract
 
 ---
 
-== Introduzione
+= Introduzione
 
 ---
 
-== 1. Stato dell'Arte: Sistemi di Retrieval-Augmented Generation (RAG)
+= Stato dell'Arte: Sistemi di Retrieval-Augmented Generation (RAG)
 
-=== 1.1 Genesi del Paradigma RAG
+== Genesi del Paradigma RAG
 
 Negli ultimi anni, i Large Language Models (LLM) hanno dimostrato elevate capacità di apprendere conoscenza fattuale e semantica da grandi quantità di dati testuali. Tuttavia, tali modelli presentano limiti strutturali significativi, tra cui la difficoltà di aggiornamento continuo, la scarsa interpretabilità e la tendenza a generare informazioni errate o non verificabili, fenomeno noto come "generation of hallucination". Queste limitazioni derivano dalla natura parametrica della conoscenza incorporata nei modelli: essa è codificata nei pesi come risultato di un processo di ottimizzazione su larga scala e rimane sostanzialmente statica. 
 
@@ -37,7 +42,7 @@ Dal punto di vista matematico, tale conoscenza corrisponde a un punto (o a una r
 
 Per affrontare tali problematiche, il paradigma della Retrieval-Augmented Generation (RAG) è stato introdotto da Lewis et al. nel 2020 @lewis2020rag. In questo approccio, la conoscenza parametrica del modello viene affiancata da una memoria esterna non parametrica, composta da collezioni di documenti preventivamente indicizzati. 
 
-=== 1.2 Architettura e Componenti di un Sistema RAG
+== Architettura e Componenti di un Sistema RAG
 
 Un sistema RAG si basa su tre componenti fondamentali:  
 - retrieval da fonti esterne  
@@ -49,21 +54,21 @@ L’accesso alle fonti esterne di conoscenza, avviene tramite tecniche di retrie
 L’architettura Transformer, introdotta da Vaswani et al. (2017) @vaswani2017attention, si basa esclusivamente su meccanismi di attenzione, eliminando completamente ricorrenze e convoluzioni. Il componente centrale è la self-attention, che consente a ciascun elemento di una sequenza di pesare dinamicamente tutti gli altri elementi, modellando dipendenze a lungo raggio in modo parallelo. Dato un insieme di query $Q$, key $K$ e value $V$, l’attenzione scalata (scaled dot-product attention) è definita come: 
 
 $
-"Attention"(Q, K, V) = "softmax"((Q K^T)/sqrt(d_k)) V
-$ 
+attention(Q, K, V) = softmax((Q K^TT) / sqrt(d_k)) V
+$
 
 dove $d_k$ è la dimensione delle key. Il fattore di normalizzazione 
 $1/sqrt(d_k)$ stabilizza il gradiente per grandi dimensioni vettoriali. 
 
-Invece di applicare una singola funzione di attenzione con key, value e query di dimensione $d_"model"$, risulta vantaggioso proiettare linearmente 
+Invece di applicare una singola funzione di attenzione con key, value e query di dimensione $d_upright("model")$, risulta vantaggioso proiettare linearmente 
 le query, le key e le value $h$ volte tramite diverse proiezioni lineari apprese, rispettivamente verso spazi di dimensione $d_k$, $d_k$ e $d_v$. La multi-head attention consente al modello di prestare attenzione congiuntamente a informazioni provenienti da diversi sottospazi di rappresentazione in posizioni differenti. Con una singola testa di attenzione, l’operazione di media tende a inibire questa capacità:
 
 $
-"MultiHead"(Q, K, V) = "Concat"("head"_1, ..., "head"_h) W^O
+mh(Q, K, V) = concat(head_1, ..., head_h) W^O
 $
 
 $
-"dove" "head"_i = "Attention"(Q W_i^Q, K W_i^K, V W_i^V)
+upright("dove") quad head_i = attention(Q W_i^Q, K W_i^K, V W_i^V)
 $
 
 e $W_i^Q, W_i^K, W_i^V$ e $W^O$ sono matrici parametriche apprese.
@@ -79,7 +84,7 @@ I documenti più rilevanti individuati dal retriever vengono forniti come contes
 
 Questo paradigma ha dimostrato di aumentare la fattualità, la trasparenza e l’aggiornabilità dei sistemi basati su LLM, riducendo al contempo la necessità di riaddestramento continuo. Inoltre, la possibilità di tracciare le fonti informative durante la generazione rappresenta un elemento chiave per la fiducia e la verificabilità delle risposte @rag_survey2023.
 
-=== 1.3 Evoluzione dei paradigmi RAG
+== Evoluzione dei paradigmi RAG
 
 La letteratura recente evidenzia una progressiva evoluzione delle architetture RAG, caratterizzata da crescente modularità e da un’integrazione sempre più stretta tra retrieval e generazione. Le prime implementazioni seguivano una pipeline lineare, in cui una query veniva trasformata in embedding, utilizzata per recuperare documenti e successivamente fornita al modello generativo @rag_survey2023.
 
@@ -103,7 +108,7 @@ Un’ulteriore ipotesi è che il “rumore controllato” migliori la calibrazio
 
 Infine, si osserva un crescente interesse per l’integrazione con sistemi multimodali, database strutturati e grafi di conoscenza, ampliando il ruolo del retrieval oltre il semplice accesso a documenti testuali e configurando i sistemi RAG come infrastrutture ibride per l’accesso e la composizione della conoscenza.
 
-=== 1.4 Frontiere agentiche, valutazioni e sfide future
+== Frontiere agentiche, valutazioni e sfide future
 
 Un’ulteriore direzione di ricerca riguarda l’efficienza computazionale e la scalabilità. L’adozione di architetture distribuite, indicizzazione incrementale e caching semantico consente di applicare i sistemi RAG in contesti reali, caratterizzati da vincoli di latenza e costi. Inoltre, l’integrazione con sistemi agentici e workflow automatizzati rappresenta un’area in rapida crescita. Per sistema agentico si intende un’architettura in cui il modello linguistico non si limita a generare una risposta a partire da un singolo prompt, ma opera come un agente capace di pianificare, prendere decisioni intermedie e interagire con strumenti esterni (ad esempio motori di ricerca, database, API o moduli di calcolo). In tale configurazione, il modello può scomporre un compito complesso in sotto-obiettivi, richiamare iterativamente il modulo di retrieval, valutare i risultati ottenuti e aggiornare il proprio stato interno o il contesto operativo. L’integrazione tra RAG e sistemi agentici consente quindi di passare da una generazione statica, limitata a un singolo ciclo di recupero e risposta, a processi iterativi e orientati all’obiettivo, più adatti a scenari applicativi complessi e dinamici.
 
@@ -115,17 +120,17 @@ Nonostante i progressi nella definizione e nell’implementazione di sistemi RAG
 - gestione di informazioni obsolete o contraddittorie  
 - definizione di benchmark realistici e metriche di valutazione adeguate
 
-=== 1.5 Conclusione
+== Conclusione
 
 Il paradigma RAG si è evoluto da un semplice sistema di recupero documentale a un ecosistema complesso, modulare e orientato alla conoscenza. L’integrazione dinamica della conoscenza esterna consente di migliorare l’affidabilità, la fattualità e la trasparenza dei modelli linguistici, rendendo tali sistemi sempre più adatti ad applicazioni reali in domini specialistici.
 
 Le direzioni future includono sistemi multimodali, agenti autonomi, retrieval adattivo, integrazione con grafi di conoscenza e strategie avanzate di reasoning. Queste innovazioni potrebbero portare allo sviluppo di sistemi intelligenti più robusti, interpretabili e aggiornabili.
 
-== 2. Metodi
+= Metodi
 
-=== 2.1 Architettura del Sistema
+== Architettura del Sistema
 
-*Selezione del database e dei modelli*
+=== Selezione del database e dei modelli
 
 Per l'implementazione del sistema è stata effettuata una selezione mirata sia del database utilizzato per la memorizzazione delle informazioni sia dei modelli impiegati nelle fasi di retrieval e generazione. 
 In particolare, è stato scelto di utilizzare PostgreSQL come sistema di gestione del database, esteso tramite pgvector, un'estensione che consente la memorizzazione e la ricerca efficiente di embedding vettoriali. 
@@ -135,7 +140,7 @@ Per quanto riguarda i modelli di intelligenza artificiale, è stata utilizzata l
 L'impiego di questa piattaforma consente di integrare modelli per embedding e generazione mantenendo un'architettura flessibile e scalabile, facilitando allo stesso tempo la sperimentazione e la sostituzione dei modelli senza modifiche sostanziali all'infrastruttura del sistema.
 Inoltre, l'impiego di Amazon Bedrock consente di gestire l'accesso ai modelli tramite l'infrastruttura Amazon Web Services, garantendo un maggiore controllo sui dati e contribuendo a preservare la riservatezza dei documenti utilizzati dal sistema, aspetto particolarmente rilevante nel contesto di questo lavoro.
 
-*LangGraph*
+=== LangGraph
 
 Per l'implementazione e l'orchestrazione del workflow del sistema RAG è stato utilizzato LangGraph, una libreria sviluppata per la costruzione di applicazioni basate su Large Language Models attraverso strutture computazionali a grafo. 
 LangGraph estende il paradigma delle pipeline lineari tipicamente utilizzate nei framework per LLM, consentendo di definire flussi di esecuzione più complessi caratterizzati da transizioni condizionali e cicli iterativi.
@@ -150,7 +155,7 @@ L'utilizzo di un'architettura basata su grafo consente di implementare strategie
 Allo stesso tempo, tale struttura garantisce un'elevata modularità: ogni nodo del grafo incapsula una specifica funzionalità del sistema, permettendo di modificare o sostituire singoli componenti — come il retriever o il modello generativo — senza alterare il workflow complessivo. 
 Queste caratteristiche rendono il sistema più flessibile, facilitando sia l'adattamento dinamico durante l'esecuzione sia la sperimentazione di diverse configurazioni architetturali.
 
-*Descrizione pipeline*
+=== Descrizione pipeline
 
 Il workflow del sistema RAG è rappresentato nell'immagine @fig:workflow, che illustra tutte le fasi del processo.
 A seguito della ricezione di una query, il sistema decide se terminare la conversazione, generare una risposta diretta senza recuperare i documenti, o procedere con il retrieval.
@@ -173,7 +178,7 @@ Inoltre tutti gli step sono affiancati da "reasoning", ovvero da una spiegazione
 
 #v(2.0em)
 
-=== 2.2 Dataset, Preprocessing e Database
+== Dataset, Preprocessing e Database
 
 I documenti utilizzati per il retrieval sono stati raccolti da fonti pubbliche e private, e includono istruzioni operative, procedure interne e documenti di rilievo per la gestione delle emergenze.
 Il processo di preprocessing ha coinvolto la pulizia dei dati, la normalizzazione del testo e la segmentazione in unità informative coerenti (chunking). ogni "chunk" sufficientemente lungo viene affiancato da un "summary" e da tre "hyper queries", ovvero domande generate automaticamente che rappresentano vari aspetti del contenuto del chunk, al fine di migliorare la copertura semantica durante il processo di retrieval. 
@@ -181,7 +186,7 @@ Il processo di preprocessing ha coinvolto la pulizia dei dati, la normalizzazion
 Il database è stato implementato utilizzando PostgreSQL con l'estensione pgvector, che consente di memorizzare e indicizzare efficientemente gli embedding vettoriali associati ai documenti.
 Gli embedding sono stati generati utilizzando un modello di embedding disponibile su Amazon Bedrock, e memorizzati nel database insieme ai metadati dei documenti, come titolo e distinzione tra documenti pubblici e privati.
 
-=== 2.3 Retrieval con reasoning
+== Retrieval con reasoning
 
 Nella fase di retrieval, il sistema genera due hyper queries a partire dalla query originale, le trasforma in embedding e utilizza la media dei tre embedding per recuperare i documenti più rilevanti dal database. Successivamente, viene fatta una valutazione del contenuto dei documenti recuperati, con l'obiettivo di identificare la rilevanza e la pertinenza delle informazioni rispetto alla query originale. Questa valutazione viene fatta da un modello, il quale affianca ad ogni "chunk" un punteggio compreso tra 0 e 1, che rappresenta la probabilità che il documento sia rilevante per la query, insieme a una spiegazione testuale che descrive le motivazioni della valutazione.
 
@@ -206,7 +211,7 @@ Dopo questa fase, i documenti vengono ordinati sulla base della rilevanza e scre
         plot.add-fill-between(
           domain: (0, mean-relevance),
           samples: 100,
-          x => sigmoid(x, k: 10, x0: mean-relevance),
+          x => sigmoid(x, k: 8, x0: mean-relevance),
           x => 0,
           style: (fill: red.lighten(70%), stroke: none),
         )
@@ -215,7 +220,7 @@ Dopo questa fase, i documenti vengono ordinati sulla base della rilevanza e scre
         plot.add-fill-between(
           domain: (mean-relevance, 1),
           samples: 100,
-          x => sigmoid(x, k: 10, x0: mean-relevance),
+          x => sigmoid(x, k: 8, x0: mean-relevance),
           x => 0,
           style: (fill: green.lighten(70%), stroke: none),
         )
@@ -224,7 +229,7 @@ Dopo questa fase, i documenti vengono ordinati sulla base della rilevanza e scre
         plot.add(
           domain: (0, 1),
           samples: 100,
-          x => sigmoid(x, k: 10, x0: mean-relevance),
+          x => sigmoid(x, k: 8, x0: mean-relevance),
           style: (stroke: black),
         )
 
@@ -257,13 +262,13 @@ Dopo questa fase, i documenti vengono ordinati sulla base della rilevanza e scre
 
 Infine, i documenti selezionati vengono forniti come contesto al modello generativo, mantenendo informazioni circa la pertinenza con la query originale, per permettere all'agente di integrare in modo più efficace le informazioni durante la generazione della risposta. 
 
-=== 2.4 Generazione e Validazione
+== Generazione e Validazione
 
 Il modello generativo utilizza come contesto i documenti recuperati con il punteggio di rilevanza, la query originale e le relative hyper queries, per produrre una risposta contestualizzata e basata su fonti attendibili. La generazione della risposta è guidata da un prompt jinja, progettato per incoraggiare il modello a integrare le informazioni in modo coerente e a fornire spiegazioni sulle decisioni prese durante la generazione. La risposta contiene citazioni ai documenti utilizzati, unito a un riassunto del contenuto e a una spiegazione del processo inferenziale seguito dal modello per arrivare alla risposta finale.
 
 La fase di validazione dirige il flusso del sistema verso l'iterazione del retrieval o verso la terminazione della conversazione. Anche in questo passaggio, l'agente fornisce una spiegazione testuale che descrive le motivazioni alla base della decisione presa, migliorando così la trasparenza del processo e permettendo all'utente di comprendere le ragioni per cui il sistema ha ritenuto la risposta soddisfacente o meno.
 
-== 3. Risultati
+= Risultati
 
 Sono stati condotti test preliminari per valutare l'efficacia del sistema RAG implementato, focalizzandosi sulla qualità del retrieval semantico, qualità delle risposte generate e tempi di ricerca. I risultati ottenuti indicano che il sistema è in grado di recuperare documenti rilevanti anche in presenza di query complesse o ambigue, grazie all'utilizzo di embedding semantici e alla generazione di hyper queries. Le risposte prodotte risultano contestualizzate e basate su fonti attendibili, con una riduzione significativa dei tempi di ricerca rispetto a un approccio basato esclusivamente su modelli generativi senza retrieval.
 
@@ -271,7 +276,7 @@ Per l'esecuzione dei test sono stati coinvolti operatori di AREU, che hanno forn
 
 Sono stati confrontati due modelli generativi diversi per valutare l'impatto della qualità del modello sulla performance complessiva del sistema RAG. I risultati indicano che, sebbene entrambi i modelli siano in grado di integrare efficacemente le informazioni recuperate, il modello con capacità generative più avanzate produce risposte più coerenti e dettagliate, evidenziando l'importanza di un modello generativo di alta qualità per massimizzare i benefici del paradigma RAG.
 
-== 4. Discussione
+= Discussione
 
 Il sistema RAG implementato ha dimostrato di essere efficace nel recuperare informazioni rilevanti e nel generare risposte contestualizzate, migliorando l'affidabilità e la pertinenza delle informazioni fornite agli operatori di AREU. Tuttavia, sono emerse alcune limitazioni, tra cui la dipendenza dalla qualità del database e dei modelli utilizzati, nonché la necessità di ulteriori ottimizzazioni per gestire scenari più complessi o dinamici. Nello specifico, i documenti utilizzati per il retrieval non sono stati prodotti con l'obiettivo di essere processati da un sistema RAG, e presentano quindi una struttura non ottimale per il processo di retrieval e generazione. In particolare, la presenza di informazioni ridondanti, obsolete o non strutturate ha reso più difficile per il sistema identificare e integrare le informazioni più rilevanti, evidenziando l'importanza di un processo di curazione e organizzazione dei dati più mirato per massimizzare l'efficacia dei sistemi RAG.
 
