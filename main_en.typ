@@ -1,69 +1,74 @@
-#set page(
-  paper: "a4",
-  margin: 2.5cm,
-  footer: context [
-    #set align(center)
-    Page #counter(page).display()
-  ]
+#import "template.typ": ottante-report, tableofcontents, remark, smallsection, disclaimer, copyright, address, contacts
+
+#show: ottante-report.with(
+  title: "Designing a RAG Agent to Support the AREU (112) Control Center",
+  subtitle: "",
+  authors: "Andrea De Tomasi",
+  date: "April 2026",
+  logo: "logoBicoccaAcademy.png",         
+  left-header-content: "",
+  right-header-content: "",
+  unnumbered-sections: false,
 )
 
-#set text(lang: "en", size: 11pt, font: "Georgia")
-#set figure(supplement: [Figure])
-#set figure(gap: 2em)
+#tableofcontents()
 
 #import "@preview/cetz:0.3.2": canvas, draw
 #import "@preview/cetz-plot:0.1.1": plot
 #let sigmoid(x, k: 8, x0: 0.5) = {
   1.0 / (1.0 + calc.exp(-k * (x - x0)))
 }
+#let mh = $upright("MultiHead")$
+#let concat = $upright("Concat")$
+#let head = $upright("head")$
+#let attention = $upright("Attention")$
+#let softmax = $upright("Softmax")$
 
-= Designing a RAG Agent to Support the AREU (112) Control Center
-
-== Abstract
+= Abstract
 
 ---
 
-== Introduction
+= Introduction
 
 ---
 
-== 1. State of the Art: Retrieval-Augmented Generation (RAG) Systems
+= State of the Art: Retrieval-Augmented Generation (RAG) Systems
 
-=== 1.1 Genesis of the RAG Paradigm
+== Genesis of the RAG Paradigm
 
-In recent years, Large Language Models (LLMs) have demonstrated high capabilities in learning factual and semantic knowledge from large amounts of text data. However, these models exhibit significant structural limitations, including difficulties in continuous updating, poor interpretability, and a tendency to generate incorrect or unverifiable information, a phenomenon known as "generation of hallucination." These limitations arise from the parametric nature of the knowledge embedded in the models: it is encoded in the weights as a result of a large-scale optimization process and remains substantially static. 
+In recent years, Large Language Models (LLMs) have demonstrated strong capabilities in learning factual and semantic knowledge from large amounts of text data. However, these models exhibit significant structural limitations, including difficulties in continuous updating, poor interpretability, and a tendency to generate incorrect or unverifiable information, a phenomenon known as "generation of hallucination." These limitations arise from the parametric nature of the knowledge embedded in the models: it is encoded in the weights as a result of a large-scale optimization process and remains substantially static. 
 
 From a mathematical perspective, this knowledge corresponds to a point (or region) of minimum of the loss function in the parameter space; therefore, targeted modification requires a new training phase or re-optimization, as it is not possible to intervene locally on individual contents without altering the overall balance of the learned parameters.
 
 To address these issues, the paradigm of Retrieval-Augmented Generation (RAG) was introduced by Lewis et al. in 2020 @lewis2020rag. In this approach, the parametric knowledge of the model is complemented by an external non-parametric memory, composed of collections of pre-indexed documents. 
 
-=== 1.2 Architecture and Components of a RAG System
+== Architecture and Components of a RAG System
 
 A RAG system is based on three fundamental components:  
 - retrieval from external sources  
 - knowledge integration  
 - text generation 
 
-Access to external sources of knowledge occurs through semantic retrieval techniques, which are methods that do not limit themselves to simple lexical matching between keywords, but represent queries and documents as vectors in a continuous semantic space (embedding). In this vector space, the similarity between texts is calculated based on the distance or angle between their respective vectors (for example, using cosine similarity), allowing for the retrieval of relevant documents even when they do not exactly share the same terms as the query, but express its conceptual content. In this way, the model can dynamically integrate updated or specialized information without having to modify its internal parameters. The tool typically used for this phase of a RAG system is the neural retriever, a system composed of one or more neural encoders (typically based on Transformer architectures) trained to map both queries and documents into dense vectors belonging to a shared semantic space. In the most common configuration, called bi-encoder, one encoder encodes the query and another encodes the documents (sometimes with shared weights). Each text is thus mapped into a vector $f(x) in RR^d$, where the dimension $d$ is fixed a priori.
+Access to external sources of knowledge occurs through semantic retrieval techniques, which are methods that do not limit themselves to simple lexical matching between keywords, but represent queries and documents as vectors in a continuous semantic space (embedding). In this vector space, the similarity between texts is computed using on the distance or angle between their respective vectors (for example, using cosine similarity), allowing for the retrieval of relevant documents even when they do not exactly share the same terms as the query, but express its conceptual content. In this way, the model can dynamically integrate updated or specialized information without having to modify its internal parameters. The tool typically used for this phase of a RAG system is the neural retriever, a system composed of one or more neural encoders (typically based on Transformer architectures) trained to map both queries and documents into dense vectors belonging to a shared semantic space. In the most common configuration, called bi-encoder, one encoder encodes the query and another encodes the documents (sometimes with shared weights). Each text is thus mapped into a vector $f(x) in RR^d$, where the dimension $d$ is fixed a priori.
 
 The Transformer architecture, introduced by Vaswani et al. (2017) @vaswani2017attention, is based exclusively on attention mechanisms, completely eliminating recurrence and convolution. The central component is self-attention, which allows each element of a sequence to dynamically weigh all other elements, modeling long-range dependencies in parallel. Given a set of queries $Q$, keys $K$, and values $V$, scaled dot-product attention is defined as: 
 
 $
-"Attention"(Q, K, V) = "softmax"((Q K^T)/sqrt(d_k)) V
+attention(Q, K, V) = softmax((Q K^T)/sqrt(d_k)) V
 $ 
 
 where $d_k$ is the dimension of the keys. The normalization factor 
 $1/sqrt(d_k)$ stabilizes the gradient for large vector dimensions. 
 
-Instead of applying a single attention function with keys, values, and queries of dimension $d_"model"$, it is beneficial to project 
+Instead of applying a single attention function with keys, values, and queries of dimension $d_upright("model")$, it is beneficial to project 
 the queries, keys, and values $h$ times through different learned linear projections, respectively to spaces of dimension $d_k$, $d_k$, and $d_v$. Multi-head attention allows the model to jointly attend to information coming from different representation subspaces in different positions. With a single attention head, the averaging operation tends to inhibit this capability:
 
 $
-"MultiHead"(Q, K, V) = "Concat"("head"_1, ..., "head"_h) W^O
+mh(Q, K, V) = concat(head_1, ..., head_h) W^O
 $
 
 $
-"dove" "head"_i = "Attention"(Q W_i^Q, K W_i^K, V W_i^V)
+upright("where") quad head_i = attention(Q W_i^Q, K W_i^K, V W_i^V)
 $
 
 and $W_i^Q, W_i^K, W_i^V$, and $W^O$ are learned parametric matrices.
@@ -76,11 +81,11 @@ The most relevant documents identified by the retriever are provided as context 
 
 This paradigm has proven to enhance the factuality, transparency, and updatability of systems based on LLMs, while reducing the need for continuous retraining. Moreover, the ability to trace informative sources during generation represents a key element for trust and verifiability of responses @rag_survey2023.
 
-=== 1.3 Evolution of RAG Paradigms
+== Evolution of RAG Paradigms
 
 Recent literature highlights a progressive evolution of RAG architectures, characterized by increasing modularity and a tighter integration between retrieval and generation. Early implementations followed a linear pipeline, where a query was transformed into an embedding, used to retrieve documents, and subsequently provided to the generative model @rag_survey2023.
 
-In this initial phase, retrieval mechanisms largely derived from traditional Information Retrieval: lexical approaches such as BM25 @okapi_trec1994 were progressively supplemented and then replaced by dense neural models based on shared vector representations between queries and documents. The adoption of semantic embeddings improved the robustness and generalization capability of the systems.
+In this initial phase, retrieval mechanisms largely derived from traditional Information Retrieval: lexical approaches such as BM25 @okapi_trec1994 were progressively supplemented and then replaced by dense neural models based on shared vector representations between queries and documents. Adoption of semantic embeddings improved the robustness and generalization capability of the systems.
 
 With the maturation of the paradigm, research introduced modular improvements aimed at optimizing the quality of the context provided to the generator. These include strategies for chunking documents (segmenting into coherent informational units), query expansion, dynamic context selection, re-ranking, and semantic filtering. Such techniques reflect the awareness that the notion of relevance in generative systems differs from that of traditional retrieval systems @survey2025.
 
@@ -96,11 +101,11 @@ Another hypothesis is that "controlled noise" improves attention calibration: th
 
 Finally, there is a growing interest in integration with multimodal systems, structured databases, and knowledge graphs, expanding the role of retrieval beyond simple access to textual documents and configuring RAG systems as hybrid infrastructures for accessing and composing knowledge.
 
-=== 1.4 Agentic Frontiers, Evaluations, and Future Challenges
+== Agentic Frontiers, Evaluations, and Future Challenges
 
-Another research direction concerns computational efficiency and scalability. The adoption of distributed architectures, incremental indexing, and semantic caching enables the application of RAG systems in real-world contexts, characterized by latency and cost constraints. Additionally, integration with agentic systems and automated workflows represents a rapidly growing area. An agentic system refers to an architecture in which the language model does not merely generate a response from a single prompt but operates as an agent capable of planning, making intermediate decisions, and interacting with external tools (e.g., search engines, databases, APIs, or computation modules). In such a configuration, the model can decompose a complex task into sub-goals, iteratively call the retrieval module, evaluate the results obtained, and update its internal state or operational context. The integration of RAG and agentic systems thus allows for a transition from static generation, limited to a single cycle of retrieval and response, to iterative and goal-oriented processes, more suited to complex and dynamic application scenarios.
+Another research direction concerns computational efficiency and scalability. The adoption of distributed architectures, incremental indexing, and semantic caching enables the application of RAG systems in real-world contexts, subject to latency and cost constraints. Additionally, integration with agentic systems and automated workflows represents a rapidly growing area. An agentic system refers to an architecture in which the language model does not merely generate a response from a single prompt but operates as an agent capable of planning, making intermediate decisions, and interacting with external tools (e.g., search engines, databases, APIs, or computation modules). In such a configuration, the model can decompose a complex task into sub-goals, iteratively call the retrieval module, evaluate the results obtained, and update its internal state or operational context. The integration of RAG and agentic systems thus allows for a transition from static generation, limited to a single cycle of retrieval and response, to iterative and goal-oriented processes, more suited to complex and dynamic application scenarios.
 
-Despite the progress in defining and implementing efficient and comprehensive RAG systems, several challenges still remain — among others:
+Despite the progress in defining and implementing efficient and comprehensive RAG systems, several challenges still remain. Among others:
 - alignment between retrieval and generation  
 - efficient knowledge selection  
 - interpretability of systems  
@@ -108,27 +113,27 @@ Despite the progress in defining and implementing efficient and comprehensive RA
 - management of obsolete or contradictory information  
 - definition of realistic benchmarks and adequate evaluation metrics
 
-=== 1.5 Conclusion
+== Conclusion
 
 The RAG paradigm has evolved from a simple document retrieval system to a complex, modular, and knowledge-oriented ecosystem. The dynamic integration of external knowledge allows for improving the reliability, factuality, and transparency of language models, making such systems increasingly suitable for real-world applications in specialized domains.
 
 Future directions include multimodal systems, autonomous agents, adaptive retrieval, integration with knowledge graphs, and advanced reasoning strategies. These innovations could lead to the development of more robust, interpretable, and updatable intelligent systems.
 
-== 2. Methods
+= Methods
 
-=== 2.1 System Architecture
+== System Architecture
 
-*Database and Model Selection*
+=== Database and Model Selection
 
-For the implementation of the system, a targeted selection was made of both the database used for storing information and the models employed in the retrieval and generation phases. 
+For the implementation of the system, both the database (used for storing information) and the models (employed in the retrieval and generation phases) were carefully selected. 
 In particular, PostgreSQL was chosen as the database management system, extended through pgvector, an extension that allows for efficient storage and retrieval of vector embeddings. 
 This solution enables the integration of vector search capabilities directly within a relational database, simplifying the system's infrastructure and facilitating the management of documents and their associated embeddings used in the retrieval process.
 
 Regarding AI models, the Amazon Bedrock platform was used, which provides access to various foundational models through a unified interface. 
-Using this platform allows for integrating embedding and generation models while maintaining a flexible and scalable architecture, simultaneously facilitating experimentation and replacement of models without substantial modifications to the system's infrastructure.
+Using this platform allows for integrating embedding and generation models while maintaining a flexible and scalable architecture, simultaneously facilitating model experimentation and replacement without major infrastructure changes.
 Moreover, the use of Amazon Bedrock enables managing access to models through the Amazon Web Services infrastructure, ensuring greater control over data and helping to preserve the confidentiality of documents used by the system, a particularly relevant aspect in the context of this work.
 
-*LangGraph*
+=== LangGraph
 
 For the implementation and orchestration of the RAG system's workflow, LangGraph was used, a library developed for building applications based on Large Language Models through graph-based computational structures. 
 LangGraph extends the paradigm of linear pipelines typically used in LLM frameworks, allowing for defining more complex execution flows characterized by conditional transitions and iterative cycles.
@@ -143,12 +148,12 @@ Using a graph-based architecture allows for implementing more elaborate reasonin
 At the same time, this structure ensures high modularity: each node of the graph encapsulates a specific functionality of the system, allowing for modifying or replacing individual components — such as the retriever or the generative model — without altering the overall workflow. 
 These features make the system more flexible, facilitating both dynamic adaptation during execution and experimentation with different architectural configurations.
 
-*Pipeline Description*
+=== Pipeline Description
 
 The workflow of the RAG system is represented in the image @fig:workflow, which illustrates all phases of the process.
 Following the receipt of a query, the system decides whether to terminate the conversation, generate a direct response without retrieving documents, or proceed with retrieval.
 
-In the case of retrieval, the agent generates two questions semantically close to the original one (hyper queries), embeddings all three queries, and uses the average of the three embeddings to retrieve the most relevant documents from the database. 
+In the case of retrieval, the agent generates two questions semantically close to the original one (hyper queries), embeds all three queries, and uses the average of the three embeddings to retrieve the most relevant documents from the database. 
 The retrieved documents are then provided as context to the generative model, which produces the final response.
 
 The next step consists of validating the generated response, which is compared with the original question to verify the consistency and correctness of the information provided. In the case of a negative outcome, the system may decide to iterate the retrieval process again, updating the graph state with the obtained information and generating new queries to further refine the search, or to terminate the conversation if it is believed that further attempts will not lead to a significant improvement in the response (for example, due to a lack of sufficient documentation).
@@ -166,7 +171,7 @@ Additionally, all steps are accompanied by "reasoning," which is a textual expla
 
 #v(2.0em)
 
-=== 2.2 Dataset, Preprocessing, and Database
+== Dataset, Preprocessing, and Database
 
 The documents used for retrieval were collected from public and private sources and include operational instructions, internal procedures, and relevant documents for emergency management.
 The preprocessing process involved data cleaning, text normalization, and segmentation into coherent informational units (chunking). Each sufficiently long "chunk" is accompanied by a "summary" and three "hyper queries," which are automatically generated questions representing various aspects of the chunk's content, in order to improve semantic coverage during the retrieval process. 
@@ -174,7 +179,7 @@ The preprocessing process involved data cleaning, text normalization, and segmen
 The database was implemented using PostgreSQL with the pgvector extension, which allows for efficient storage and indexing of vector embeddings associated with the documents.
 The embeddings were generated using an embedding model available on Amazon Bedrock and stored in the database along with the metadata of the documents, such as title and the distinction between public and private documents.
 
-=== 2.3 Retrieval with Reasoning
+== Retrieval with Reasoning
 
 In the retrieval phase, the system generates two hyper queries from the original query, transforms them into embeddings, and uses the average of the three embeddings to retrieve the most relevant documents from the database. Subsequently, an evaluation of the content of the retrieved documents is made, with the goal of identifying the relevance and pertinence of the information concerning the original query. This evaluation is performed by a model, which assigns to each "chunk" a score between 0 and 1, representing the probability that the document is relevant to the query, along with a textual explanation describing the reasoning behind the evaluation.
 
@@ -199,7 +204,7 @@ After this phase, the documents are sorted based on relevance and filtered to re
         plot.add-fill-between(
           domain: (0, mean-relevance),
           samples: 100,
-          x => sigmoid(x, k: 10, x0: mean-relevance),
+          x => sigmoid(x, k: 8, x0: mean-relevance),
           x => 0,
           style: (fill: red.lighten(70%), stroke: none),
         )
@@ -208,7 +213,7 @@ After this phase, the documents are sorted based on relevance and filtered to re
         plot.add-fill-between(
           domain: (mean-relevance, 1),
           samples: 100,
-          x => sigmoid(x, k: 10, x0: mean-relevance),
+          x => sigmoid(x, k: 8, x0: mean-relevance),
           x => 0,
           style: (fill: green.lighten(70%), stroke: none),
         )
@@ -217,7 +222,7 @@ After this phase, the documents are sorted based on relevance and filtered to re
         plot.add(
           domain: (0, 1),
           samples: 100,
-          x => sigmoid(x, k: 10, x0: mean-relevance),
+          x => sigmoid(x, k: 8, x0: mean-relevance),
           style: (stroke: black),
         )
 
@@ -250,13 +255,13 @@ After this phase, the documents are sorted based on relevance and filtered to re
 
 Finally, the selected documents are provided as context to the generative model, maintaining information about their relevance to the original query, to enable the agent to more effectively integrate the information during the response generation.
 
-=== 2.4 Generation and Validation
+== Generation and Validation
 
-The generative model uses as context the retrieved documents with the relevance score, the original query, and their related hyper queries, to produce a contextualized response based on reliable sources. The response generation is guided by a jinja prompt, designed to encourage the model to integrate information coherently and provide explanations about the decisions made during generation. The response contains citations to the documents used, along with a summary of the content and an explanation of the inferential process followed by the model to arrive at the final response.
+The generative model uses as context the retrieved documents with the relevance score, the original query, and their related hyper queries, to produce a contextualized response based on reliable sources. The response generation is guided by a Jinja2 prompt, designed to encourage the model to integrate information coherently and provide explanations about the decisions made during generation. The response contains citations to the documents used, along with a summary of the content and an explanation of the inferential process followed by the model to arrive at the final response.
 
 The validation phase directs the flow of the system towards either iterating the retrieval or terminating the conversation. Even in this step, the agent provides a textual explanation that describes the reasons behind the decision made, thus improving the transparency of the process and allowing the user to understand why the system deemed the response satisfactory or not.
 
-== 3. Results
+= Results
 
 Preliminary tests were conducted to evaluate the effectiveness of the implemented RAG system, focusing on the quality of semantic retrieval, quality of generated responses, and search times. The results obtained indicate that the system is capable of retrieving relevant documents even in the presence of complex or ambiguous queries, thanks to the use of semantic embeddings and the generation of hyper queries. The produced responses are contextualized and based on reliable sources, with a significant reduction in search times compared to an approach based solely on generative models without retrieval.
 
@@ -264,7 +269,7 @@ AREU operators were involved in conducting the tests, providing qualitative feed
 
 Two different generative models were compared to evaluate the impact of model quality on the overall performance of the RAG system. The results indicate that, although both models are capable of effectively integrating retrieved information, the model with more advanced generative capabilities produces more coherent and detailed responses, highlighting the importance of a high-quality generative model to maximize the benefits of the RAG paradigm.
 
-== 4. Discussion
+= Discussion
 
 The implemented RAG system has proven effective in retrieving relevant information and generating contextualized responses, improving the reliability and relevance of the information provided to AREU operators. However, some limitations have emerged, including dependency on the quality of the database and models used, as well as the need for further optimizations to handle more complex or dynamic scenarios. Specifically, the documents used for retrieval were not produced with the goal of being processed by a RAG system, and therefore have a non-optimal structure for the retrieval and generation process. In particular, the presence of redundant, obsolete, or unstructured information has made it more difficult for the system to identify and integrate the most relevant information, highlighting the importance of a more targeted data curation and organization process to maximize the effectiveness of RAG systems.
 
