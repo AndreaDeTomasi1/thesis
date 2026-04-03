@@ -210,7 +210,7 @@ Inoltre tutti gli step sono affiancati da "reasoning", ovvero da una spiegazione
 
 #figure(
   image("/ObservableRagAgentTest-graph.png", width: 100%),
-  caption: [RAG agent workflow],
+  caption: [RAG workflow],
 ) <fig:workflow>
 
 == Dataset e Preprocessing
@@ -320,19 +320,21 @@ La componente più incisiva nella qualità del retrieval è stata la presenza di
 
 Per l'esecuzione dei test sono stati coinvolti operatori di AREU, che hanno fornito feedback qualitativi sulla pertinenza delle risposte e sulla facilità d'uso del sistema. Per automatizzare il processo di testing e disporre di un benchmark per la valutazione di sviluppi e miglioramenti futuri, è stato costruito un dataset di domande corredate dai contenuti attesi che devono essere presenti nelle rispettive risposte. I risultati preliminari suggeriscono un potenziale significativo per l'applicazione di sistemi RAG in contesti di emergenza, dove la rapidità e l'affidabilità delle informazioni sono cruciali.
 
-Sono stati confrontati due modelli generativi diversi per valutare l'impatto della qualità del modello sulla performance complessiva del sistema RAG: Amazon Nova 2 Lite e Claude Sonnet 4.6. Come si evince da @fig:boxplot_scores, non si sono riscontrate differenze significative tra i due modelli in termini di punteggio di soddisfazione assegnato alle risposte generate, suggerendo che la qualità del retrieval e la struttura del prompt possono avere un impatto più determinante sulla performance complessiva rispetto alla scelta specifica del modello generativo, almeno all'interno della gamma di modelli testati. Questo risultato evidenzia l'importanza di ottimizzare le componenti di retrieval e prompt engineering per massimizzare l'efficacia dei sistemi RAG, piuttosto che concentrarsi esclusivamente sulla selezione del modello generativo. Per quanto riguarda i tempi di risposta, dalla @fig:boxplot_times si osserva una grande differenza in termini di latenza tra i due modelli, con il modello Amazon Nova 2 Lite che restituisce le risposte in tempi significativamente inferiori rispetto all'altro. Questo risultato sottolinea l'importanza di considerare non solo la qualità delle risposte generate, ma anche l'efficienza computazionale dei modelli utilizzati, soprattutto in contesti come quello di AREU, dove la rapidità delle informazioni è cruciale.
-
-Osservando più nel dettaglio i tempi nei vari nodi del grafo (@fig:nodes_times_comparison), si è riscontrato che la fase di reranking rappresenta il collo di bottiglia principale, con tempi di esecuzione significativamente più elevati rispetto alla fase di generazione. Questo risultato evidenzia l'importanza di ottimizzare la fase di valutazione e selezione dei documenti recuperati, poiché rappresenta un punto critico per l'efficienza complessiva del sistema RAG. L'ottimizzazione di questa fase potrebbe comportare miglioramenti significativi nei tempi di risposta, rendendo il sistema più adatto a scenari reali in cui la rapidità delle informazioni è essenziale.
+Sono stati confrontati due modelli generativi diversi per valutare l'impatto della qualità del modello sulla performance complessiva del sistema RAG: Amazon Nova 2 Lite e Claude Sonnet 4.6. Come si evince da @fig:boxplot_scores, non si sono riscontrate differenze significative tra i due modelli in termini di punteggio di soddisfazione assegnato alle risposte generate, suggerendo che la qualità del retrieval e la struttura del prompt possono avere un impatto più determinante sulla performance complessiva rispetto alla scelta specifica del modello generativo, almeno all'interno della gamma di modelli testati. Questo risultato evidenzia l'importanza di ottimizzare le componenti di retrieval e prompt engineering per massimizzare l'efficacia dei sistemi RAG, piuttosto che concentrarsi esclusivamente sulla selezione del modello generativo. 
 
 #figure(
-  image("/boxplot_score.png", width: 100%),
+  image("/boxplot_scores.png", width: 100%),
   caption: [Boxplot scores],
 ) <fig:boxplot_scores>
+
+Per quanto riguarda i tempi di risposta, dalla @fig:boxplot_times si osserva una grande differenza in termini di latenza tra i due modelli, con il modello Amazon Nova 2 Lite che restituisce le risposte in tempi significativamente inferiori rispetto all'altro. Questo risultato sottolinea l'importanza di considerare non solo la qualità delle risposte generate, ma anche l'efficienza computazionale dei modelli utilizzati, soprattutto in contesti come quello di AREU, dove la rapidità delle informazioni è cruciale.
 
 #figure(
   image("/boxplot_times.png", width: 100%),
   caption: [Boxplot times],
 ) <fig:boxplot_times>
+
+Osservando più nel dettaglio i tempi nei vari nodi del grafo (@fig:nodes_times_comparison), si è riscontrato che la fase di reranking rappresenta il collo di bottiglia principale, con tempi di esecuzione significativamente più elevati rispetto alla fase di generazione. Questo risultato evidenzia l'importanza di ottimizzare la fase di valutazione e selezione dei documenti recuperati, poiché rappresenta un punto critico per l'efficienza complessiva del sistema RAG. L'ottimizzazione di questa fase potrebbe comportare miglioramenti significativi nei tempi di risposta, rendendo il sistema più adatto a scenari reali in cui la rapidità delle informazioni è essenziale.
 
 #figure(
   image("/nodes_times_comparison.png", width: 100%),
