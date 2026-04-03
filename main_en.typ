@@ -314,7 +314,7 @@ AREU operators were directly involved in testing, providing qualitative feedback
 Two different generative models were compared to evaluate the impact of model quality on the overall performance of the RAG system: Amazon Nova 2 Lite and Claude Sonnet 4.6. As shown in @fig:boxplot_scores, no significant differences were observed between the two models in terms of satisfaction scores assigned to the generated responses. This suggests that retrieval quality and prompt design may have a more decisive impact on overall performance than the specific choice of generative model, at least within the range of models evaluated. This finding highlights the importance of optimizing retrieval and prompt engineering components to maximize the effectiveness of RAG systems, rather than focusing solely on model selection.
 
 #figure(
-  image("/boxplot_score.png", width: 100%),
+  image("/boxplot_scores.png", width: 100%),
   caption: [Boxplot scores],
 ) <fig:boxplot_scores>
 
