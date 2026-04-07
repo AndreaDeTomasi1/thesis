@@ -311,12 +311,12 @@ The most impactful factor in retrieval quality was the inclusion of hypothetical
 
 AREU operators were directly involved in testing, providing qualitative feedback on the relevance of responses and the usability of the system. To automate the evaluation process and establish a benchmark for future developments, a dataset of questions accompanied by the expected content for their respective answers was constructed. Preliminary results suggest that RAG systems hold significant potential in emergency contexts, where the speed and reliability of information are critical.
 
-Three different generative models were compared to evaluate the impact of model quality on the overall performance of the RAG system: Amazon Nova 2 Lite, Claude Sonnet 4.6 and Mistral Pixtral Large. As shown in @fig:boxplot_scores, no significant differences were observed between Nova and Sonnet in terms of satisfaction scores assigned to the generated responses (Sonnet is slightly better), while the Mistral Pixtral Large model showed a more pronounced performance gap. This suggests that retrieval quality and prompt design may have a more decisive impact on overall performance than the specific choice of generative model, at least within the range of models evaluated. This finding highlights the importance of optimizing retrieval and prompt engineering components to maximize the effectiveness of RAG systems, rather than focusing solely on model selection.
+Three different generative models were compared to evaluate the impact of model quality on the overall performance of the RAG system: Amazon Nova 2 Lite, Claude Sonnet 4.6 and Mistral Pixtral Large. As shown in @fig:scores_comparison, no significant differences were observed between Nova and Sonnet in terms of satisfaction scores assigned to the generated responses (Sonnet is slightly better), while the Mistral Pixtral Large model showed a more pronounced performance gap. This suggests that retrieval quality and prompt design may have a more decisive impact on overall performance than the specific choice of generative model, at least within the range of models evaluated. This finding highlights the importance of optimizing retrieval and prompt engineering components to maximize the effectiveness of RAG systems, rather than focusing solely on model selection.
 
 #figure(
-  image("/boxplot_scores.png", width: 100%),
-  caption: [Boxplot scores],
-) <fig:boxplot_scores>
+  image("/hist_side_by_side.png", width: 100%),
+  caption: [Scores comparison],
+) <fig:scores_comparison>
 
 Regarding response times, @fig:boxplot_times shows a significant difference in latency between the three models, with Amazon Nova 2 Lite returning responses considerably faster than Claude Sonnet 4.6 and Mistral Pixtral Large. This result underscores the importance of considering not only the quality of generated responses but also the computational efficiency of the models, especially in contexts such as AREU, where timely access to information is critical.
 
